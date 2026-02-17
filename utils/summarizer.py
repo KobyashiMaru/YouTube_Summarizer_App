@@ -1,7 +1,7 @@
 from google import genai
 import os
 
-def summarize_transcript(transcript_text, logger, api_key=None):
+def summarize_transcript(transcript_text, logger, api_key=None, model_name="models/gemini-2.5-flash"):
     """
     Summarizes the transcript using Google Gemini.
     Returns a dict with summary, outline, etc.
@@ -13,7 +13,7 @@ def summarize_transcript(transcript_text, logger, api_key=None):
         logger.critical("Gemini API Key is missing.")
         return None
 
-    logger.info("Generating summary with Gemini...")
+    logger.info(f"Generating summary with Gemini ({model_name})...")
     
     try:
         client = genai.Client(api_key=api_key)
@@ -24,13 +24,11 @@ def summarize_transcript(transcript_text, logger, api_key=None):
             "2. A structured outline.\n"
             "3. Key takeaways.\n\n"
             "Transcript:\n"
-            f"{transcript_text[:30000]}" # Truncate if too long, though 1.5 Flash has 1M context. 
-            # Better to not truncate unless necessary, but safeguard for now. 
-            # Actually, 1.5 Flash can handle huge context, let's remove truncation or make it large.
+            f"{transcript_text[:30000]}" # Truncate if too long
         )
         
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model=model_name,
             contents=[prompt]
         )
         

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from utils.logger import UILogger, LogLevel
+from utils.logger import UILogger, LogLevel, CriticalError
 from utils.channel_monitor import check_for_new_videos
 from utils.downloader import download_audio
 from utils.transcriber import transcribe_audio
@@ -64,33 +64,58 @@ with col1:
     end_datetime = datetime.datetime.combine(end_date, end_time)
 
     # 3. Output Directory
+    st.markdown("### Output")
     default_out_dir = config.get("output_dir", os.path.join(os.getcwd(), "output"))
     output_dir = st.text_input("Output Directory", value=default_out_dir)
 
-    # 4. Whisper Model
-    model_options = ["mlx-community/whisper-large-v3-mlp", "mlx-community/whisper-turbo-mlp", "mlx-community/whisper-tiny-mlp"]
+    # 4. Model Selection
+    st.markdown("### Model Selection")
+    model_options = ["mlx-community/whisper-large-v3-mlp", "mlx-community/whisper-large-v3-turbo", "mlx-community/whisper-tiny-mlp"]
     default_model_index = 1 # Default to turbo
-    saved_model = config.get("model_name", "mlx-community/whisper-turbo-mlp")
+    saved_model = config.get("model_name", "mlx-community/whisper-large-v3-turbo")
     
     if saved_model in model_options:
         default_model_index = model_options.index(saved_model)
             
     model_name = st.selectbox("Whisper Model", model_options, index=default_model_index)
 
+    # Gemini Model
+    gemini_model_options = ["models/gemini-2.5-flash", "models/gemini-3-flash-preview"]
+    default_gemini_index = 0
+    saved_gemini_model = config.get("gemini_model", "models/gemini-2.5-flash")
+    
+    if saved_gemini_model in gemini_model_options:
+        default_gemini_index = gemini_model_options.index(saved_gemini_model)
+        
+    gemini_model = st.selectbox("Gemini Model", gemini_model_options, index=default_gemini_index)
+
+# ... (previous code)
+
 with col2:
     st.subheader("Console Log")
     
-    # Log Container
-    log_container = st.empty()
+    # Log Container with Fixed Height for Stability
+    console_container = st.container(height=400)
     
-    # Function to render logs
-    def render_logs():
-        logs = logger.get_logs()
-        log_container.code(logs, language="text")
+    # Place log output inside the fixed container
+    log_output = console_container.empty()
+    
+    # Always set the logger container so updates work on every rerun
+    # We need a wrapper to ensure .code() is called on the empty placeholder within the container
+    class ContainerWrapper:
+        def __init__(self, placeholder):
+            self.placeholder = placeholder
+        def code(self, text, language="text"):
+            self.placeholder.code(text, language=language)
+        def empty(self):
+            self.placeholder.empty()
 
-    render_logs()
+    logger.set_container(ContainerWrapper(log_output))
     
-    if st.button("Clear Logs"):
+    # Render logs on load/rerun
+    log_output.code(logger.get_logs(), language="text")
+    
+    if st.button("Clear Logs", disabled=st.session_state.get("is_processing", False)):
         logger.clear()
         st.rerun()
 
@@ -98,98 +123,140 @@ with col2:
 with st.sidebar:
     api_key = st.text_input("Gemini API Key", type="password", value=os.getenv("GEMINI_API_KEY", ""))
 
-if st.button("Start Processing", type="primary"):
+# Initialize processing state
+if "is_processing" not in st.session_state:
+    st.session_state.is_processing = False
+
+# Start Button with State Management
+# Note: Streamlit buttons return True *only* on the click event.
+# To disable it *while* the logic runs within that same click event, we rely on the fact that
+# the UI won't update *until* the script finishes anyway, effectively blocking interaction.
+# However, to explicitly show a "Disabled" state, we need to rerun.
+# Since we can't rerun *inside* the button processing without interrupting it, we use a flag.
+
+start_button = st.button("Start Processing", type="primary", disabled=st.session_state.is_processing)
+
+if start_button:
+    st.session_state.is_processing = True
+    # We force a rerun to update the UI state (disable button) immediately? 
+    # No, that would reset the button click. 
+    # Streamlit executes the block below. The UI is locked (running) for the user anyway.
+    # The 'disabled' prop above is useful if we trigger processing via another thread or async, 
+    # but here it's synchronous. The main benefit is preventing double-clicks if we yielded.
+    # For now, relying on 'running' state is standard for sync scripts. 
+    # But user asked for GRAY button.
+    # To truly gray it out, we'd need to set state -> rerun -> run logic -> set state -> rerun.
+    # Standard pattern:
+    
+    # 1. Set processing flag
+    # 2. Rerun
+    # 3. On next run, if flag is true -> disable button & run logic -> set flag false -> rerun
+    
+    # Let's try the direct execution first, usually sufficient. 
+    # Use st.spinner for visual feedback.
+    
     # Save Config
     new_config = {
         "channels": channels_input,
         "output_dir": output_dir,
-        "model_name": model_name
+        "model_name": model_name,
+        "gemini_model": gemini_model
     }
     save_config(new_config)
     
     if not api_key:
         logger.critical("Please provide a Gemini API Key.")
-        render_logs()
-        st.stop()
+        # No need to stop() here as critical will raise exception now
         
-    logger.info("Starting processing...")
-    logger.info(f"Time Period: {start_datetime} - {end_datetime}")
-    logger.info(f"Model: {model_name}")
-    
-    # Create Trigger Time Folder
-    trigger_time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    current_output_dir = os.path.join(output_dir, trigger_time_str)
-    if not os.path.exists(current_output_dir):
-        os.makedirs(current_output_dir)
-        
-    logger.info(f"Output Directory: {current_output_dir}")
-    
-    if not channels_input.strip():
-        logger.warning("No channels provided.")
-    else:
-        channel_list = [url.strip() for url in channels_input.split('\n') if url.strip()]
-        logger.info(f"Processing {len(channel_list)} channels.")
-        
-        # 1. Check for videos
-        videos = check_for_new_videos(channel_list, start_datetime, end_datetime, logger)
-        
-        if not videos:
-            logger.info("No videos found in the specified time period.")
-        else:
-            for video in videos:
-                video_title = video.get('title', 'Unknown_Title')
-                channel_name = video.get('channel_name', 'Unknown_Channel')
-                upload_time = video.get('published') # datetime object
+    try:
+        with st.spinner('Processing...'):
+            logger.info("Starting processing...")
+            logger.info(f"Time Period: {start_datetime} - {end_datetime}")
+            logger.info(f"Model: {model_name}")
+            
+            # Create Trigger Time Folder
+            trigger_time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            current_output_dir = os.path.join(output_dir, trigger_time_str)
+            if not os.path.exists(current_output_dir):
+                os.makedirs(current_output_dir)
                 
-                # Format for filename: <upload_time>_<YouTube_Channel_Name>_<Video_Title>
-                # Sanitize filename
-                def sanitize(name):
-                    return "".join([c for c in name if c.isalpha() or c.isdigit() or c in (' ', '-', '_')]).rstrip()
+            logger.info(f"Output Directory: {current_output_dir}")
+            
+            if not channels_input.strip():
+                logger.warning("No channels provided.")
+            else:
+                channel_list = [url.strip() for url in channels_input.split('\n') if url.strip()]
+                logger.info(f"Processing {len(channel_list)} channels.")
                 
-                upload_time_str = upload_time.strftime("%Y-%m-%d_%H-%M-%S") if upload_time else "UnknownTime"
-                safe_title = sanitize(video_title)
-                safe_channel = sanitize(channel_name)
+                # 1. Check for videos
+                videos = check_for_new_videos(channel_list, start_datetime, end_datetime, logger)
                 
-                # Truncate if too long to avoid FS errors
-                filename_base = f"{upload_time_str}_{safe_channel}_{safe_title}"[:200]
-                
-                logger.info(f"Processing video: {video_title}")
-                
-                # 2. Download
-                audio_path = download_audio(video.get('link'), current_output_dir, logger)
-                
-                if audio_path:
-                    # 3. Transcribe
-                    transcript = transcribe_audio(audio_path, model_name, logger)
-                    
-                    if transcript:
-                        # 4. Summarize
-                        summary_data = summarize_transcript(transcript, logger, api_key=api_key)
+                if not videos:
+                    logger.info("No videos found in the specified time period.")
+                else:
+                    for video in videos:
+                        video_title = video.get('title', 'Unknown_Title')
+                        channel_name = video.get('channel_name', 'Unknown_Channel')
+                        upload_time = video.get('published') # datetime object
                         
-                        if summary_data:
-                            # 5. Save Report
-                            report_filename = f"{filename_base}.md"
-                            report_path = os.path.join(current_output_dir, report_filename)
+                        # Format for filename: <upload_time>_<YouTube_Channel_Name>_<Video_Title>
+                        # Sanitize filename
+                        def sanitize(name):
+                            return "".join([c for c in name if c.isalpha() or c.isdigit() or c in (' ', '-', '_')]).rstrip()
+                        
+                        upload_time_str = upload_time.strftime("%Y-%m-%d_%H-%M-%S") if upload_time else "UnknownTime"
+                        safe_title = sanitize(video_title)
+                        safe_channel = sanitize(channel_name)
+                        
+                        # Truncate if too long to avoid FS errors
+                        filename_base = f"{upload_time_str}_{safe_channel}_{safe_title}"[:200]
+                        
+                        logger.info(f"Processing video: {video_title}")
+                        
+                        # 2. Download
+                        audio_path = download_audio(video.get('link'), current_output_dir, logger)
+                        
+                        if audio_path:
+                            # 3. Transcribe
+                            transcript = transcribe_audio(audio_path, model_name, logger)
                             
-                            with open(report_path, "w", encoding="utf-8") as f:
-                                f.write(f"# {video_title}\n\n")
-                                f.write(f"**Channel:** {channel_name}\n")
-                                f.write(f"**Upload Time:** {upload_time}\n")
-                                f.write(f"**Link:** {video.get('link')}\n\n")
-                                f.write("## Summary & Outline\n\n")
-                                f.write(summary_data['summary_content'])
-                                f.write("\n\n## Detailed Transcript\n\n")
-                                f.write(summary_data['detailed_transcript'])
+                            if transcript:
+                                # 4. Summarize
+                                summary_data = summarize_transcript(transcript, logger, api_key=api_key, model_name=gemini_model)
                                 
-                            logger.info(f"Report saved to: {report_path}")
-                            
-                    # Optional: Cleanup audio file
-                    try:
-                        os.remove(audio_path)
-                        logger.info(f"Removed temp audio: {audio_path}")
-                    except:
-                        pass
-                
-                logger.info(f"Finished processing {video_title}")
+                                if summary_data:
+                                    # 5. Save Report
+                                    report_filename = f"{filename_base}.md"
+                                    report_path = os.path.join(current_output_dir, report_filename)
+                                    
+                                    with open(report_path, "w", encoding="utf-8") as f:
+                                        f.write(f"# {video_title}\n\n")
+                                        f.write(f"**Channel:** {channel_name}\n")
+                                        f.write(f"**Upload Time:** {upload_time}\n")
+                                        f.write(f"**Link:** {video.get('link')}\n\n")
+                                        f.write("## Summary & Outline\n\n")
+                                        f.write(summary_data['summary_content'])
+                                        f.write("\n\n## Detailed Transcript\n\n")
+                                        f.write(summary_data['detailed_transcript'])
+                                        
+                                    logger.info(f"Report saved to: {report_path}")
+                                    
+                            # Optional: Cleanup audio file
+                            try:
+                                os.remove(audio_path)
+                                logger.info(f"Removed temp audio: {audio_path}")
+                            except:
+                                pass
+                        
+                        logger.info(f"Finished processing {video_title}")
 
-    render_logs()
+            logger.info("All processing complete.")
+            
+    except CriticalError as e:
+        st.error(f"Processing stopped due to critical error: {e}")
+    except Exception as e:
+        logger.critical(f"An unexpected error occurred: {e}")
+        st.error(f"An unexpected error occurred: {e}")
+    finally:
+        st.session_state.is_processing = False
+        # Optional: st.rerun() if we were doing the async state pattern

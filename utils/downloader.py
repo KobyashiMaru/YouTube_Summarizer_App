@@ -1,11 +1,31 @@
 import yt_dlp
 import os
+import time
 
 def download_audio(video_url, output_dir, logger):
     """
     Downloads audio from YouTube video using yt-dlp.
     Returns path to the downloaded audio file.
     """
+    # Store the last log time (using list or dict to allow modification in nested functions)
+    last_log_time = {"time": 0}
+
+    def progress_hook(d):
+        if d['status'] == 'downloading':
+            current_time = time.time()
+            # Check if it has been more than 10 seconds since the last log
+            if current_time - last_log_time["time"] >= 10:
+                percent = d.get('_percent_str', '0%')
+                speed = d.get('_speed_str', 'N/A')
+                eta = d.get('_eta_str', 'N/A')
+                logger.info(f"Download progress: {percent} | Speed: {speed} | Estimated time remaining: {eta}")
+                
+                # Update last log time
+                last_log_time["time"] = current_time
+        
+        elif d['status'] == 'finished':
+            logger.info("Download completed, now processing with FFmpeg...")
+
     logger.info(f"Downloading audio from {video_url}...")
     
     ydl_opts = {
@@ -17,6 +37,7 @@ def download_audio(video_url, output_dir, logger):
         'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
+        'progress_hooks': [progress_hook],
     }
     
     if not os.path.exists(output_dir):
