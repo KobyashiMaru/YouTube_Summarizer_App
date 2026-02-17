@@ -1,0 +1,9 @@
+streamlit>=1.30.0
+feedparser>=6.0.10
+yt-dlp>=2023.11.16
+mlx-whisper
+google-genai
+python-dotenv
+ffmpeg-python
+beautifulsoup4
+requests
