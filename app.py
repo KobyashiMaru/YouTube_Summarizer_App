@@ -222,7 +222,7 @@ if start_button:
                             
                             if transcript:
                                 # 4. Summarize
-                                summary_data = summarize_transcript(transcript, logger, api_key=api_key, model_name=gemini_model)
+                                summary_data = summarize_transcript(transcript, video.get('link'), logger, api_key=api_key, model_name=gemini_model)
                                 
                                 if summary_data:
                                     # 5. Save Report

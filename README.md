@@ -87,3 +87,14 @@ This is a local, high-performance tool designed for macOS (Apple Silicon) to aut
 4.  **View Results**:
     *   Check the `output/` directory (or your custom path) for folders named by timestamp.
     *   Inside, you will find `.md` files for each processed video.
+
+
+
+## Todo List
+- [ ] Work on the prompt for the summarizer to make it more concise and informative.
+- [x] Use transcript and gemini-generated summary to generate a more detailed summary.
+- [ ] Consider the algorithm of the transcribe process, maybe we should get rid of the chunking process method, but remain the user experience of the progress bar.
+
+
+
+
