@@ -55,10 +55,10 @@ with col1:
     t1, t2 = st.columns(2)
     with t1:
         start_date = st.date_input("Start Date", datetime.date.today())
-        start_time = st.time_input("Start Time", datetime.time(6, 0))
+        start_time = st.time_input("Start Time", datetime.time(0, 0))
     with t2:
         end_date = st.date_input("End Date", datetime.date.today())
-        end_time = st.time_input("End Time", datetime.time(8, 0))
+        end_time = st.time_input("End Time", datetime.time(23, 59))
     
     start_datetime = datetime.datetime.combine(start_date, start_time)
     end_datetime = datetime.datetime.combine(end_date, end_time)
@@ -176,7 +176,11 @@ if start_button:
             
             # Create Trigger Time Folder
             trigger_time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            current_output_dir = os.path.join(output_dir, trigger_time_str)
+            start_str = start_datetime.strftime("%Y-%m-%d_%H-%M-%S")
+            end_str = end_datetime.strftime("%Y-%m-%d_%H-%M-%S")
+            
+            folder_name = f"Trigger_{trigger_time_str}_From_{start_str}_{end_str}"
+            current_output_dir = os.path.join(output_dir, folder_name)
             if not os.path.exists(current_output_dir):
                 os.makedirs(current_output_dir)
                 

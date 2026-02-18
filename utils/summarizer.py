@@ -21,10 +21,10 @@ def summarize_transcript(transcript_text, video_link, logger, api_key=None, mode
         logger.info(f"(1/2) Generating abstract with Gemini ({model_name})...")
         
         prompt = (
-            "Analyze the following youtube f{video_link} link and provide:\n"
-            "1. A concise summary.\n"
-            "2. A structured outline.\n"
-            "3. Key takeaways.\n\n"
+            "使用繁體中文，分析以下 YouTube 影片連結 f{video_link} 並提供：\n"
+            "1. 簡明摘要\n"
+            "2. 結構化提綱\n"
+            "3. 主要結論\n\n"
         )
         
         abstract_response = client.models.generate_content(
@@ -35,13 +35,13 @@ def summarize_transcript(transcript_text, video_link, logger, api_key=None, mode
         logger.info(f"(2/2) Generating summary with Gemini ({model_name})...")
 
         prompt = (
-            "Analyze the following transcript and abstract, and provide:\n"
-            "1. A concise summary.\n"
-            "2. A structured outline.\n"
-            "3. Key takeaways.\n\n"
-            "Transcript:\n"
+            "使用繁體中文，分析以下文字稿和摘要，並提供以下資訊:\n"
+            "1. 簡明摘要\n"
+            "2. 結構化提綱\n"
+            "3. 主要結論\n\n"
+            "逐字稿:\n"
             f"{transcript_text[:80000]}\n\n"
-            "Abstract:\n"
+            "摘要:\n"
             f"{abstract_response.text}"
         )
         

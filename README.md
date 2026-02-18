@@ -91,10 +91,12 @@ This is a local, high-performance tool designed for macOS (Apple Silicon) to aut
 
 
 ## Todo List
-- [ ] Work on the prompt for the summarizer to make it more concise and informative.
+- [x] Work on the prompt for the summarizer to make it more concise and informative.
+    * Currently we are using traditional Chinese for the response. And the current output is good enough for me. 
+    * Maybe we can set up a prompt to give LLM certain characteristics, such as a financial analyst, a historian, etc.
 - [x] Use transcript and gemini-generated summary to generate a more detailed summary.
 - [ ] Consider the algorithm of the transcribe process, maybe we should get rid of the chunking process method, but remain the user experience of the progress bar.
-
+- [x] Set date range to be today to today, and the default time range should be 00:00 to 23:59.
 
 
 
