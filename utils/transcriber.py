@@ -1,71 +1,98 @@
 import mlx_whisper
-import os
+import sys
+import re
+import ffmpeg
+import threading
 import time
-from pydub import AudioSegment
-from tqdm import tqdm
+from io import StringIO
+
+def get_audio_duration(file_path):
+    """
+    Get the duration of the audio file in seconds using ffmpeg-python.
+    """
+    try:
+        probe = ffmpeg.probe(file_path)
+        return float(probe['format']['duration'])
+    except Exception as e:
+        print(f"Error getting duration: {e}")
+        return None
+
+class ProgressCapturer:
+    def __init__(self, logger, total_duration):
+        self.logger = logger
+        self.total_duration = total_duration
+        self._stdout = None
+        self._original_stdout = None
+        self._buffer = ""
+        # Regex to capture timestamp from mlx_whisper output: [00:00.000 --> 00:07.480]
+        self._pattern = re.compile(r"-->\s*(\d{2}):(\d{2})\.(\d{3})")
+        self._last_log_time = 0
+        self._log_interval = 2.0  # Log every 2 seconds to avoid flooding
+
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = self
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        sys.stdout = self._original_stdout
+
+    def write(self, data):
+        # Pass through to original stdout so it still shows in terminal
+        self._original_stdout.write(data)
+        
+        # Buffer checking for pattern
+        self._buffer += data
+        # Process lines
+        while '\n' in self._buffer:
+            line, self._buffer = self._buffer.split('\n', 1)
+            self._process_line(line)
+
+    def flush(self):
+        self._original_stdout.flush()
+
+    def _process_line(self, line):
+        # Expected format: [00:00.000 --> 00:07.480] ... text ...
+        match = self._pattern.search(line)
+        if match:
+            minutes, seconds, milliseconds = match.groups()
+            current_seconds = float(minutes) * 60 + float(seconds) + float(milliseconds) / 1000
+            
+            # Log progress if interval met
+            current_time = time.time()
+            if current_time - self._last_log_time >= self._log_interval:
+                if self.total_duration:
+                    progress_percent = min(100, (current_seconds / self.total_duration) * 100)
+                    self.logger.info(f"Transcribing: {current_seconds:.1f} / {self.total_duration:.1f} seconds ({progress_percent:.1f}%)")
+                else:
+                    self.logger.info(f"Transcribing: {current_seconds:.1f} seconds processed")
+                
+                self._last_log_time = current_time
 
 def transcribe_audio(audio_path, model_name, logger):
     """
-    Transcribes audio using mlx-whisper with progress logging.
-    Splits audio into 30s chunks and logs progress every ~10 seconds.
+    Transcribes audio using mlx-whisper.
     Returns the transcript text.
     """
     logger.info(f"Transcribing {audio_path} using {model_name}...")
     
+    duration = get_audio_duration(audio_path)
+    if duration:
+        logger.info(f"Audio duration: {duration:.2f} seconds")
+    
     try:
-        # 1. Load audio and calculate total duration
-        audio = AudioSegment.from_file(audio_path)
-        total_ms = len(audio)
-        chunk_size_ms = 30000  # Whisper standard chunk size is 30 seconds
-        chunks = range(0, total_ms, chunk_size_ms)
-        
-        full_transcript = []
-        last_log_time = {"time": 0}
-        total_chunks = len(chunks)
-        
-        logger.info(f"Audio length: {total_ms/1000:.2f}s. Split into {total_chunks} chunks.")
-
-        for i, start_ms in enumerate(chunks):
-            # Cut audio chunk
-            end_ms = min(start_ms + chunk_size_ms, total_ms)
-            chunk_audio = audio[start_ms:end_ms]
-            
-            # Export temp file (mlx-whisper needs file path)
-            # Use unique name to avoid conflicts if parallel (though streamlit is sequential per session)
-            # Better to put in same dir as audio_path or temp dir
-            temp_chunk_path = f"{audio_path}_temp_chunk_{i}.wav"
-            chunk_audio.export(temp_chunk_path, format="wav")
-            
-            # Transcribe chunk
-            # suppress internal print if possible, but mlx-whisper might not have verbose=False arg in all versions?
-            # User snippet used verbose=False.
+        # mlx_whisper automatically handles model downloading if not present
+        # We capture stdout to parse progress
+        with ProgressCapturer(logger, duration):
             result = mlx_whisper.transcribe(
-                temp_chunk_path, 
-                path_or_hf_repo=model_name,
-                verbose=False
+                audio_path, 
+                path_or_hf_repo=model_name, 
+                verbose=True
             )
             
-            text = result.get("text", "").strip()
-            full_transcript.append(text)
-            
-            # Remove temp file
-            try:
-                os.remove(temp_chunk_path)
-            except OSError:
-                pass
-            
-            # Log progress every 10 seconds
-            current_time = time.time()
-            if current_time - last_log_time["time"] >= 10:
-                progress = (i + 1) / total_chunks * 100
-                logger.info(f"Transcription progress: {progress:.1f}% ({i + 1}/{total_chunks} chunks)")
-                last_log_time["time"] = current_time
-
-        final_text = " ".join(full_transcript)
-        logger.info(f"Transcription complete (length: {len(final_text)} chars)")
-        return final_text
-        
+        text = result.get("text", "")
+        logger.info(f"Transcription complete (length: {len(text)} chars)")
+        return text
     except Exception as e:
         logger.critical(f"Error during transcription: {e}")
-        # Clean up any potential temp files if needed? 
         return ""

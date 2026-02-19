@@ -1,7 +1,7 @@
 from google import genai
 import os
 
-def summarize_transcript(transcript_text, video_link, logger, api_key=None, model_name="models/gemini-2.5-flash"):
+def summarize_transcript(transcript_text, video_link, logger, api_key=None, abstract_model="models/gemini-2.5-flash-lite", summary_model="models/gemini-2.5-pro"):
     """
     Summarizes the transcript using Google Gemini.
     Returns a dict with summary, outline, etc.
@@ -13,26 +13,28 @@ def summarize_transcript(transcript_text, video_link, logger, api_key=None, mode
         logger.critical("Gemini API Key is missing.")
         return None
 
-    logger.info(f"Generating response with Gemini ({model_name})...")
+    logger.info(f"Generating response with Gemini...")
+    logger.info(f"Abstract Model: {abstract_model}")
+    logger.info(f"Summary Model: {summary_model}")
     
     try:
         client = genai.Client(api_key=api_key)
 
-        logger.info(f"(1/2) Generating abstract with Gemini ({model_name})...")
+        logger.info(f"(1/2) Generating abstract with Gemini ({abstract_model})...")
         
         prompt = (
-            "使用繁體中文，分析以下 YouTube 影片連結 f{video_link} 並提供：\n"
+            f"使用繁體中文，分析以下 YouTube 影片連結 {video_link} 並提供：\n"
             "1. 簡明摘要\n"
             "2. 結構化提綱\n"
             "3. 主要結論\n\n"
         )
         
         abstract_response = client.models.generate_content(
-            model=model_name,
+            model=abstract_model,
             contents=[prompt]
         )
 
-        logger.info(f"(2/2) Generating summary with Gemini ({model_name})...")
+        logger.info(f"(2/2) Generating summary with Gemini ({summary_model})...")
 
         prompt = (
             "使用繁體中文，分析以下文字稿和摘要，並提供以下資訊:\n"
@@ -46,7 +48,7 @@ def summarize_transcript(transcript_text, video_link, logger, api_key=None, mode
         )
         
         response = client.models.generate_content(
-            model=model_name,
+            model=summary_model,
             contents=[prompt]
         )
         

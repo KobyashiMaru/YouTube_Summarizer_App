@@ -80,14 +80,30 @@ with col1:
     model_name = st.selectbox("Whisper Model", model_options, index=default_model_index)
 
     # Gemini Model
-    gemini_model_options = ["models/gemini-2.5-flash", "models/gemini-3-flash-preview"]
-    default_gemini_index = 0
-    saved_gemini_model = config.get("gemini_model", "models/gemini-2.5-flash")
+    gemini_models = [
+        "models/gemini-2.5-flash-lite", 
+        "models/gemini-2.5-flash", 
+        "models/gemini-3-flash-preview", 
+        "models/deep-research-pro-preview-12-2025", 
+        "models/gemini-2.5-pro", 
+        "models/gemini-3-pro-preview"
+    ]
     
-    if saved_gemini_model in gemini_model_options:
-        default_gemini_index = gemini_model_options.index(saved_gemini_model)
-        
-    gemini_model = st.selectbox("Gemini Model", gemini_model_options, index=default_gemini_index)
+    # Defaults
+    default_abstract_model = "models/gemini-2.5-flash-lite"
+    default_summary_model = "models/gemini-2.5-pro"
+    
+    # Load from config or use default
+    saved_abstract_model = config.get("gemini_abstract_model", default_abstract_model)
+    saved_summary_model = config.get("gemini_summary_model", default_summary_model)
+    
+    # Ensure saved model is in list (fallback if removed/renamed)
+    idx_abstract = gemini_models.index(saved_abstract_model) if saved_abstract_model in gemini_models else gemini_models.index(default_abstract_model)
+    idx_summary = gemini_models.index(saved_summary_model) if saved_summary_model in gemini_models else gemini_models.index(default_summary_model)
+
+    # st.markdown("#### Gemini Models")
+    gemini_abstract_model = st.selectbox("Abstract Generation Model", gemini_models, index=idx_abstract)
+    gemini_summary_model = st.selectbox("Summary Generation Model", gemini_models, index=idx_summary)
 
 # ... (previous code)
 
@@ -160,7 +176,8 @@ if start_button:
         "channels": channels_input,
         "output_dir": output_dir,
         "model_name": model_name,
-        "gemini_model": gemini_model
+        "gemini_abstract_model": gemini_abstract_model,
+        "gemini_summary_model": gemini_summary_model
     }
     save_config(new_config)
     
@@ -226,7 +243,14 @@ if start_button:
                             
                             if transcript:
                                 # 4. Summarize
-                                summary_data = summarize_transcript(transcript, video.get('link'), logger, api_key=api_key, model_name=gemini_model)
+                                summary_data = summarize_transcript(
+                                    transcript, 
+                                    video.get('link'), 
+                                    logger, 
+                                    api_key=api_key, 
+                                    abstract_model=gemini_abstract_model,
+                                    summary_model=gemini_summary_model
+                                )
                                 
                                 if summary_data:
                                     # 5. Save Report

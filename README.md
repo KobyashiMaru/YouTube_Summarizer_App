@@ -95,8 +95,11 @@ This is a local, high-performance tool designed for macOS (Apple Silicon) to aut
     * Currently we are using traditional Chinese for the response. And the current output is good enough for me. 
     * Maybe we can set up a prompt to give LLM certain characteristics, such as a financial analyst, a historian, etc.
 - [x] Use transcript and gemini-generated summary to generate a more detailed summary.
-- [ ] Consider the algorithm of the transcribe process, maybe we should get rid of the chunking process method, but remain the user experience of the progress bar.
+- [x] Consider the algorithm of the transcribe process, maybe we should get rid of the chunking process method, but remain the user experience of the progress bar.
 - [x] Set date range to be today to today, and the default time range should be 00:00 to 23:59.
+- [ ] Need a retry mechanism for the API calls when the API is currently unavailable (code 503).
+- [ ] When we hit the requests per day limit(code 429), we should be able to change the API key or change the model automatically
+- [x] Make more selections on Gemini models.
 
 
 
