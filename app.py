@@ -137,7 +137,26 @@ with col2:
 
 # Processing Logic
 with st.sidebar:
-    api_key = st.text_input("Gemini API Key", type="password", value=os.getenv("GEMINI_API_KEY", ""))
+    # API Key Input
+    # Support multiple keys: multiline or comma separated
+    default_api_keys = os.getenv("GEMINI_API_KEY", "")
+    api_key_input = st.text_input("Gemini API Keys (one per line or comma-separated)", value=default_api_keys, type="password")
+    
+    # Parse keys
+    api_keys = []
+    if api_key_input:
+        # Split by newline or comma
+        raw_keys = api_key_input.replace(",", "\n").split("\n")
+        api_keys = [k.strip() for k in raw_keys if k.strip()]
+    
+    if api_keys:
+        st.caption(f"Loaded {len(api_keys)} API Key(s)")
+        # Show masked keys for verification
+        # for k in api_keys:
+        #     masked = f"{k[:4]}...{k[-4:]}" if len(k) > 8 else "****"
+        #     st.caption(f"- {masked}")
+    else:
+        st.warning("No API Keys provided.")
 
 # Initialize processing state
 if "is_processing" not in st.session_state:
@@ -181,8 +200,8 @@ if start_button:
     }
     save_config(new_config)
     
-    if not api_key:
-        logger.critical("Please provide a Gemini API Key.")
+    if not api_keys:
+        logger.critical("Please provide at least one Gemini API Key.")
         # No need to stop() here as critical will raise exception now
         
     try:
@@ -247,7 +266,7 @@ if start_button:
                                     transcript, 
                                     video.get('link'), 
                                     logger, 
-                                    api_key=api_key, 
+                                    api_keys=api_keys, 
                                     abstract_model=gemini_abstract_model,
                                     summary_model=gemini_summary_model
                                 )

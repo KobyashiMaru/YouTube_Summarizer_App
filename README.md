@@ -97,8 +97,8 @@ This is a local, high-performance tool designed for macOS (Apple Silicon) to aut
 - [x] Use transcript and gemini-generated summary to generate a more detailed summary.
 - [x] Consider the algorithm of the transcribe process, maybe we should get rid of the chunking process method, but remain the user experience of the progress bar.
 - [x] Set date range to be today to today, and the default time range should be 00:00 to 23:59.
-- [ ] Need a retry mechanism for the API calls when the API is currently unavailable (code 503).
-- [ ] When we hit the requests per day limit(code 429), we should be able to change the API key or change the model automatically
+- [x] Need a retry mechanism for the API calls when the API is currently unavailable (code 503).
+- [x] When we hit the requests per day limit(code 429), we should be able to change the API key
 - [x] Make more selections on Gemini models.
 
 

@@ -15,6 +15,8 @@ class DummyLogger:
         print(f"[CRITICAL] {msg}")
     def error(self, msg):
         print(f"[ERROR] {msg}")
+    def warning(self, msg):
+        print(f"[WARNING] {msg}")
 
 def main():
     transcript_file = os.path.join(os.path.dirname(__file__), "test_transcript.txt")
@@ -29,14 +31,21 @@ def main():
 
     video_link = "https://www.youtube.com/watch?v=kLLOxiUsZx4" # Dummy link or actual if known
     logger = DummyLogger()
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key_input = os.getenv("GEMINI_API_KEY")
     
-    if not api_key:
+    if not api_key_input:
         print("Error: GEMINI_API_KEY not found in environment.")
         return
 
+    # Parse keys similarly to app.py
+    raw_keys = api_key_input.replace(",", "\n").split("\n")
+    api_keys = [k.strip() for k in raw_keys if k.strip()]
+
+    print(f"Loaded {len(api_keys)} API keys.")
+
     print("Generating summary...")
-    summary_data = summarize_transcript(transcript_text, video_link, logger, api_key=api_key)
+    # Pass api_keys list instead of single api_key
+    summary_data = summarize_transcript(transcript_text, video_link, logger, api_keys=api_keys)
     
     if summary_data:
         output_file = os.path.join(os.path.dirname(__file__), "test_summary.md")
