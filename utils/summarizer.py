@@ -92,7 +92,7 @@ def summarize_transcript(transcript_text, video_link, logger, api_keys=None, abs
         prompt_abstract = (
             f"使用繁體中文，分析以下 YouTube 影片連結 {video_link} 並提供：\n"
             "1. 簡明摘要\n"
-            "2. 結構化提綱\n"
+            "2. 結構化提綱同時附上時間軸\n"
             "3. 主要結論\n\n"
         )
         
@@ -103,6 +103,8 @@ def summarize_transcript(transcript_text, video_link, logger, api_keys=None, abs
         logger.info(f"(2/2) Generating summary with Gemini ({summary_model})...")
 
         prompt_summary = (
+            "如果摘要和逐字稿主題不相符，則以逐字稿為主，並忽略摘要\n"
+            "如果摘要和逐字稿主題相符，則在結構化提綱時，保留時間軸，並以逐字稿內容加以補充\n"
             "使用繁體中文，分析以下文字稿和摘要，並提供以下資訊:\n"
             "1. 簡明摘要\n"
             "2. 結構化提綱\n"

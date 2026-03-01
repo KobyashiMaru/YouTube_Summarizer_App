@@ -234,6 +234,7 @@ if start_button:
                 if not videos:
                     logger.info("No videos found in the specified time period.")
                 else:
+                    failed_live_videos = []
                     for video in videos:
                         video_title = video.get('title', 'Unknown_Title')
                         channel_name = video.get('channel_name', 'Unknown_Channel')
@@ -256,6 +257,11 @@ if start_button:
                         # 2. Download
                         audio_path = download_audio(video.get('link'), current_output_dir, logger)
                         
+                        if audio_path == "LIVE_EVENT_UPCOMING":
+                            logger.info(f"The audio {video.get('link')} cannot be downloaded in the moment, skip to the next audio")
+                            failed_live_videos.append(video.get('link'))
+                            continue
+
                         if audio_path:
                             # 3. Transcribe
                             transcript = transcribe_audio(audio_path, model_name, logger)
@@ -296,6 +302,10 @@ if start_button:
                                 pass
                         
                         logger.info(f"Finished processing {video_title}")
+
+                    if failed_live_videos:
+                        urls_str = "\n\t".join(failed_live_videos)
+                        logger.info(f"Here is the video cannot process at the moment, please retry later: \n\t{urls_str}")
 
             logger.info("All processing complete.")
             
