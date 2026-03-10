@@ -38,7 +38,7 @@ This is a local, high-performance tool designed for macOS (Apple Silicon) to aut
 1. **Clone the repository**:
 
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/KobyashiMaru/YouTube_Summarizer_App.git
    cd YouTube_Summarizer_App
    ```
 2. **Install FFmpeg** (if not installed):

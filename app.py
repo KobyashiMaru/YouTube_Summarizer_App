@@ -81,6 +81,8 @@ with col1:
 
     # Gemini Model
     gemini_models = [
+        "models/gemini-3.1-flash-lite-preview",
+        # "models/gemini-3.1-flash-lite",
         "models/gemini-2.5-flash-lite", 
         "models/gemini-2.5-flash", 
         "models/gemini-3-flash-preview", 
