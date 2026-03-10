@@ -87,8 +87,10 @@ def transcribe_audio(audio_path, model_name, logger):
             result = mlx_whisper.transcribe(
                 audio_path, 
                 path_or_hf_repo=model_name, 
-                verbose=True
-            )
+                verbose=True, 
+                temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0), 
+                compression_ratio_threshold=2.4
+                )
             
         text = result.get("text", "")
         logger.info(f"Transcription complete (length: {len(text)} chars)")
