@@ -103,7 +103,7 @@ def summarize_transcript(transcript_text, video_link, logger, api_keys=None, abs
         logger.info(f"(2/2) Generating summary with Gemini ({summary_model})...")
 
         prompt_summary = (
-            "如果摘要和逐字稿主題不相符，則以逐字稿為主，並忽略摘要\n"
+            "如果摘要和逐字稿主題不相符，則以逐字稿為主，並忽略摘要以及任何時間軸\n"
             "如果摘要和逐字稿主題相符，則在結構化提綱時，保留時間軸，並以逐字稿內容加以補充\n"
             "使用繁體中文，分析以下文字稿和摘要，並提供以下資訊:\n"
             "1. 簡明摘要\n"
